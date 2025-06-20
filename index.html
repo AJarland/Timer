@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Time Tracker</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #213547;
+            --card-bg: #ffffff;
+            --border-color: #ddd;
+            --active-bg: #e8f5e9;
+            --button-bg: #4CAF50;
+            --button-text: white;
+            --suggestion-bg: #f0f0f0;
+            --danger-bg: #dc3545;
+            --danger-hover: #bb2d3b;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #242424;
+            --text-color: rgba(255, 255, 255, 0.87);
+            --card-bg: #1a1a1a;
+            --border-color: #333;
+            --active-bg: #1b5e20;
+            --button-bg: #388E3C;
+            --button-text: white;
+            --suggestion-bg: #333;
+            --danger-bg: #dc3545;
+            --danger-hover: #bb2d3b;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .project-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .project-input input {
+            flex: 1;
+            padding: 8px;
+            background: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        button {
+            padding: 8px 16px;
+            background: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        button.danger {
+            background: var(--danger-bg);
+        }
+
+        button.danger:hover {
+            background: var(--danger-hover);
+        }
+
+        .project-list {
+            margin-bottom: 20px;
+        }
+
+        .project-item {
+            display: grid;
+            grid-template-columns: 1fr minmax(150px, auto) minmax(200px, auto);
+            gap: 20px;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 5px;
+            background: var(--card-bg);
+        }
+
+        .project-item.active {
+            background: var(--active-bg);
+        }
+
+        .time-display {
+            text-align: center;
+            min-width: 150px;
+            justify-self: center;
+        }
+
+        .time-edit {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            justify-content: center;
+            min-width: 150px;
+            justify-self: center;
+        }
+
+        .project-buttons {
+            display: flex;
+            gap: 5px;
+            justify-content: flex-end;
+            min-width: 200px;
+        }
+
+        .calendar {
+            margin-bottom: 20px;
+        }
+
+        .suggestions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .suggestion {
+            padding: 5px 10px;
+            background: var(--suggestion-bg);
+            border-radius: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .suggestion-remove {
+            cursor: pointer;
+            padding: 0 5px;
+            opacity: 0.7;
+        }
+
+        .suggestion-remove:hover {
+            opacity: 1;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .controls input {
+            padding: 8px;
+            background: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .controls input[type="date"] {
+            position: relative;
+        }
+
+        .controls input[type="date"]::-webkit-calendar-picker-indicator {
+            background-color: var(--card-bg);
+            cursor: pointer;
+        }
+
+        /* Style for dates with projects */
+        input[type="date"].has-projects {
+            color: var(--button-bg);
+            font-weight: bold;
+        }
+
+        .time-edit input {
+            width: 50px;
+            padding: 4px;
+            background: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .export-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .export-modal.show {
+            display: flex;
+        }
+
+        .export-modal-content {
+            background: var(--bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 300px;
+        }
+
+        .export-modal-content button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .export-modal-content button:last-child {
+            margin-bottom: 0;
+        }
+
+        .project-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .total-time {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: var(--card-bg);
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <h1>Project Time Tracker</h1>
+    
+    <div class="controls">
+        <input type="date" id="dateSelector" />
+        <button onclick="showExportModal()">Export CSV</button>
+        <button onclick="clearHistory()">Clear History</button>
+        <button onclick="toggleTheme()">Toggle Theme</button>
+        <button class="danger" onclick="clearTimers()">Clear All Timers</button>
+    </div>
+
+    <div class="total-time" id="totalTime"></div>
+
+    <div class="project-input">
+        <input type="text" id="projectInput" placeholder="Enter project name" list="projectSuggestions" />
+        <button onclick="startNewProject()">Start Timer</button>
+    </div>
+
+    <div class="suggestions" id="suggestions"></div>
+    <div class="project-list" id="projectList"></div>
+
+    <datalist id="projectSuggestions"></datalist>
+
+    <div class="export-modal" id="exportModal">
+        <div class="export-modal-content">
+            <h2>Export Time Data</h2>
+            <button onclick="exportData('day')">Export Selected Day</button>
+            <button onclick="exportData('week')">Export Selected Week</button>
+            <button onclick="exportData('month')">Export Selected Month</button>
+            <button onclick="closeExportModal()">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            projects: {},
+            activeProject: null,
+            knownProjects: new Set(),
+            currentDate: new Date().toISOString().split('T')[0],
+            theme: localStorage.getItem('timeTrackerTheme') || 'light',
+            editingProject: null
+        };
+
+        function removeSuggestion(project, event) {
+            event.stopPropagation(); // Prevent triggering the suggestion click
+            state.knownProjects.delete(project);
+            saveState();
+            updateSuggestions();
+        }
+
+        function applyTheme() {
+            document.body.setAttribute('data-theme', state.theme);
+            localStorage.setItem('timeTrackerTheme', state.theme);
+        }
+
+        function toggleTheme() {
+            state.theme = state.theme === 'light' ? 'dark' : 'light';
+            applyTheme();
+        }
+
+        function showExportModal() {
+            document.getElementById('exportModal').classList.add('show');
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.remove('show');
+        }
+
+        function clearTimers() {
+            if (confirm('Are you sure you want to clear all timers for the current day? This cannot be undone.')) {
+                state.projects = {};
+                state.activeProject = null;
+                saveState();
+                render();
+            }
+        }
+
+        function hasProjects(date) {
+            const saved = localStorage.getItem(`timeTracker_${date}`);
+            return saved && Object.keys(JSON.parse(saved).projects).length > 0;
+        }
+
+        function updateDateHighlight() {
+            const dateSelector = document.getElementById('dateSelector');
+            if (hasProjects(dateSelector.value)) {
+                dateSelector.classList.add('has-projects');
+            } else {
+                dateSelector.classList.remove('has-projects');
+            }
+        }
+
+        function calculateTotalTime() {
+            let total = 0;
+            for (const project of Object.values(state.projects)) {
+                let projectTime = project.totalTime;
+                if (project.isActive) {
+                    projectTime += Date.now() - project.startTime;
+                }
+                total += projectTime;
+            }
+            return total;
+        }
+
+        function updateTotalTime() {
+            const totalTime = calculateTotalTime();
+            const hours = Math.floor(totalTime / 3600000);
+            const minutes = Math.floor((totalTime % 3600000) / 60000);
+            const seconds = Math.floor((totalTime % 60000) / 1000);
+            document.getElementById('totalTime').innerHTML = `Total Time: ${hours}h ${minutes}m ${seconds}s`;
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('timeTracker');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                state.knownProjects = new Set(parsed.knownProjects);
+                updateSuggestions();
+            }
+            loadDayData();
+            applyTheme();
+        }
+
+        function saveState() {
+            localStorage.setItem('timeTracker', JSON.stringify({
+                knownProjects: Array.from(state.knownProjects)
+            }));
+            saveDayData();
+            updateDateHighlight();
+        }
+
+        function loadDayData() {
+            const saved = localStorage.getItem(`timeTracker_${state.currentDate}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                state.projects = parsed.projects;
+                state.activeProject = null;
+            } else {
+                state.projects = {};
+                state.activeProject = null;
+            }
+            updateDateHighlight();
+            render();
+        }
+
+        function saveDayData() {
+            localStorage.setItem(`timeTracker_${state.currentDate}`, JSON.stringify({
+                projects: state.projects
+            }));
+        }
+
+        function toggleTimeEdit(name) {
+            state.editingProject = state.editingProject === name ? null : name;
+            render();
+        }
+
+        function updateProjectTime(name, hours, minutes, seconds) {
+            const project = state.projects[name];
+            if (!project || project.isActive) return;
+
+            const totalMs = (
+                parseInt(hours) * 3600000 +
+                parseInt(minutes) * 60000 +
+                parseInt(seconds) * 1000
+            );
+
+            project.totalTime = totalMs;
+            saveState();
+            render();
+        }
+
+        function exportData(range) {
+            const currentDate = new Date(state.currentDate);
+            let startDate = new Date(currentDate);
+            let endDate = new Date(currentDate);
+
+            switch (range) {
+                case 'week':
+                    startDate.setDate(currentDate.getDate() - currentDate.getDay());
+                    endDate.setDate(startDate.getDate() + 6);
+                    break;
+                case 'month':
+                    startDate.setDate(1);
+                    endDate.setMonth(currentDate.getMonth() + 1, 0);
+                    break;
+                default: // day
+                    break;
+            }
+
+            const data = [];
+            const header = ['Date', 'Project', 'Hours', 'Minutes', 'Seconds'];
+            data.push(header);
+
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+                const savedData = localStorage.getItem(`timeTracker_${dateStr}`);
+                
+                if (savedData) {
+                    const dayData = JSON.parse(savedData);
+                    Object.entries(dayData.projects).forEach(([project, info]) => {
+                        const totalMs = info.totalTime;
+                        const hours = Math.floor(totalMs / 3600000);
+                        const minutes = Math.floor((totalMs % 3600000) / 60000);
+                        const seconds = Math.floor((totalMs % 60000) / 1000);
+                        data.push([dateStr, project, hours, minutes, seconds]);
+                    });
+                }
+            }
+
+            const csv = data.map(row => row.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `time-tracker-${range}-${state.currentDate}.csv`);
+            a.click();
+            closeExportModal();
+        }
+
+        function startNewProject() {
+            const projectName = document.getElementById('projectInput').value.trim();
+            if (!projectName) return;
+
+            state.knownProjects.add(projectName);
+
+            if (state.activeProject) {
+                const active = state.projects[state.activeProject];
+                active.endTime = Date.now();
+                active.totalTime += active.endTime - active.startTime;
+                active.isActive = false;
+            }
+
+            if (!state.projects[projectName]) {
+                state.projects[projectName] = {
+                    totalTime: 0,
+                    isActive: true,
+                    startTime: Date.now(),
+                    endTime: null
+                };
+            } else {
+                state.projects[projectName].isActive = true;
+                state.projects[projectName].startTime = Date.now();
+                state.projects[projectName].endTime = null;
+            }
+
+            state.activeProject = projectName;
+            document.getElementById('projectInput').value = '';
+            
+            saveState();
+            render();
+        }
+
+        function render() {
+            const projectList = document.getElementById('projectList');
+            projectList.innerHTML = '';
+            
+            for (const [name, data] of Object.entries(state.projects)) {
+                let totalTime = data.totalTime;
+                if (data.isActive) {
+                    totalTime += Date.now() - data.startTime;
+                }
+
+                const hours = Math.floor(totalTime / 3600000);
+                const minutes = Math.floor((totalTime % 3600000) / 60000);
+                const seconds = Math.floor((totalTime % 60000) / 1000);
+
+                const div = document.createElement('div');
+                div.className = `project-item ${data.isActive ? 'active' : ''}`;
+                
+                let timeDisplay;
+                if (!data.isActive && state.editingProject === name) {
+                    timeDisplay = `
+                        <div class="time-edit">
+                            <input type="number" value="${hours}" min="0" onchange="updateProjectTime('${name}', this.value, ${minutes}, ${seconds})" /> h
+                            <input type="number" value="${minutes}" min="0" max="59" onchange="updateProjectTime('${name}', ${hours}, this.value, ${seconds})" /> m
+                            <input type="number" value="${seconds}" min="0" max="59" onchange="updateProjectTime('${name}', ${hours}, ${minutes}, this.value)" /> s
+                        </div>
+                    `;
+                } else {
+                    timeDisplay = `<div class="time-display">${formatTime(totalTime)}</div>`;
+                }
+
+                div.innerHTML = `
+                    <span>${name}</span>
+                    ${timeDisplay}
+                    <div class="project-buttons">
+                        ${!data.isActive ? 
+                            `<button onclick="toggleTimeEdit('${name}')">${state.editingProject === name ? 'Done' : 'Edit Time'}</button>` : 
+                            `<button style="visibility: hidden">Edit Time</button>`
+                        }
+                        ${data.isActive ? 
+                            '<button onclick="pauseProject(\'' + name + '\')">Pause</button>' :
+                            '<button onclick="resumeProject(\'' + name + '\')">Resume</button>'
+                        }
+                    </div>
+                `;
+                projectList.appendChild(div);
+            }
+
+            updateSuggestions();
+            updateTotalTime();
+        }
+
+        function formatTime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+        }
+
+        function pauseProject(name) {
+            const project = state.projects[name];
+            project.endTime = Date.now();
+            project.totalTime += project.endTime - project.startTime;
+            project.isActive = false;
+            state.activeProject = null;
+            saveState();
+            render();
+        }
+
+        function resumeProject(name) {
+            if (state.activeProject) {
+                pauseProject(state.activeProject);
+            }
+            state.projects[name].isActive = true;
+            state.projects[name].startTime = Date.now();
+            state.activeProject = name;
+            state.editingProject = null;
+            saveState();
+            render();
+        }
+
+        function clearHistory() {
+            if (confirm('Are you sure you want to clear all history? This cannot be undone.')) {
+                state.projects = {};
+                state.activeProject = null;
+                state.knownProjects.clear();
+                saveState();
+                render();
+            }
+        }
+
+        function updateSuggestions() {
+            const suggestions = document.getElementById('suggestions');
+            const datalist = document.getElementById('projectSuggestions');
+            
+            suggestions.innerHTML = '';
+            datalist.innerHTML = '';
+            
+            state.knownProjects.forEach(project => {
+                const span = document.createElement('span');
+                span.className = 'suggestion';
+                span.innerHTML = `
+                    <span onclick="document.getElementById('projectInput').value = '${project}'; startNewProject();">${project}</span>
+                    <span class="suggestion-remove" onclick="removeSuggestion('${project}', event)">×</span>
+                `;
+                suggestions.appendChild(span);
+
+                const option = document.createElement('option');
+                option.value = project;
+                datalist.appendChild(option);
+            });
+        }
+
+        document.getElementById('dateSelector').value = state.currentDate;
+        document.getElementById('dateSelector').addEventListener('change', (e) => {
+            state.currentDate = e.target.value;
+            loadDayData();
+        });
+
+        setInterval(() => {
+            if (state.activeProject) {
+                render();
+            }
+        }, 1000);
+
+        loadState();
+    </script>
+</body>
+</html>
